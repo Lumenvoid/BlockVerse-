@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>BlockVerse - Account System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            font-family: 'Nunito', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        h1, h2, h3, .title-font {
+            font-family: 'Fredoka One', cursive;
+        }
+        
+        body {
+            overscroll-behavior: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0f0f23;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .glass-dark {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .gradient-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .gradient-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes slide-up {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .slide-up {
+            animation: slide-up 0.3s ease-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        .shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(102, 126, 234, 0.8); }
+        }
+        .input-focus:focus {
+            animation: pulse-glow 2s infinite;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 4px;
+        }
+
+        .btn-press:active {
+            transform: scale(0.95);
+            opacity: 0.9;
+        }
+
+        .password-strength {
+            height: 4px;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+
+        .strength-weak { background: #ff4757; width: 33%; }
+        .strength-medium { background: #ffa502; width: 66%; }
+        .strength-strong { background: #2ed573; width: 100%; }
+
+        .joystick-area {
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 70%);
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        
+        .joystick-knob {
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.9), rgba(200,200,200,0.8));
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .safe-top { padding-top: env(safe-area-inset-top); }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+        .toast {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-weight: bold;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .loading-spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="text-white antialiased">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="fixed inset-0 gradient-primary flex flex-col items-center justify-center z-[100]">
+        <div class="text-6xl mb-4 animate-float">🎮</div>
+        <h1 class="text-4xl mb-2">BlockVerse</h1>
+        <p class="text-white/70 mb-8">Loading...</p>
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Auth Container -->
+    <div id="authContainer" class="hidden fixed inset-0 gradient-primary flex items-center justify-center p-4">
+        
+        <!-- Login Form -->
+        <div id="loginForm" class="glass rounded-3xl p-6 w-full max-w-sm slide-up">
+            <div class="text-center mb-6">
+                <div class="text-5xl mb-3 animate-float inline-block">🌟</div>
+                <h1 class="text-3xl mb-1">Welcome Back!</h1>
+                <p class="text-white/70 text-sm">Login to continue your adventure</p>
+            </div>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-white/80 text-sm mb-2 ml-1">Username</label>
+                    <div class="relative">
+                        <i class="fas fa-user absolute left-4 top-1/2 transform -translate-y-1/2 text-white/50"></i>
+                        <input type="text" id="loginUsername" required
+                            class="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/50 input-focus transition-all"
+                            placeholder="Enter your username">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-white/80 text-sm mb-2 ml-1">Password</label>
+                    <div class="relative">
+                        <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-white/50"></i>
+                        <input type="password" id="loginPassword" required
+                            class="w-full pl-12 pr-12 py-4 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/50 input-focus transition-all"
+                            placeholder="Enter your password">
+                        <button type="button" onclick="togglePassword('loginPassword')" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/50">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center text-sm">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="rememberMe" class="w-4 h-4 rounded border-white/30 bg-white/10 text-purple-600 focus:ring-purple-500">
+                        <span class="text-white/70">Remember me</span>
+                    </label>
+                    <button type="button" onclick="showForgotPassword()" class="text-white/70 hover:text-white">Forgot password?</button>
+                </div>
+
+                <button type="submit" class="w-full py-4 bg-white text-purple-600 rounded-2xl font-bold text-lg shadow-lg btn-press transition-all mt-6 flex items-center justify-center gap-2">
+                    <span>Login</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+
+            <div class="mt-6 text-center">
+                <p class="text-white/60 text-sm">Don't have an account?</p>
+                <button onclick="showRegister()" class="mt-2 text-white font-bold hover:underline">Create Account</button>
+            </div>
+        </div>
+
+        <!-- Register Form -->
+        <div id="registerForm" class="hidden glass rounded-3xl p-6 w-full max-w-sm slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="text-center mb-6">
+                <div class="text-5xl mb-3 animate-float inline-block">🚀</div>
+                <h1 class="text-3xl mb-1">Create Account</h1>
+                <p class="text-white/70 text-sm">Join millions of players!</p>
+            </div>
+
+            <form onsubmit="handleRegister(event)" class="space-y-4">
+                <!-- Full Name -->
+                <div>
+                    <label class="block text-white/80 text-sm mb-2 ml-1">Full Name *</label>
+                    <div class="relative">
+                        <i class="fas fa-id-card absolute left-4 top-1/2 transform -translate-y-1/2 text-white/50"></i>
+                        <input type="text" id="regName" required maxlength="50"
+                            class="w-full pl-12 pr-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/50 input-focus transition-all"
+                            placeholder="Your real name">
+                    </div>
+                </div>
+
+                <!-- Username -->
+                <div>
+                    <label class="block text-white/80 text-sm mb-2 ml-1">Username *</label>
+                    <div class="relative">
+                        <i class="fas fa-user absolute left-4 top-1/2 transform -translate-y-1/2 text-white/50"></i>
+                        <input type="text" id="regUsername" required maxlength="20" pattern="[a-zA-Z0-9_]+"
+                            class="w-full pl-12 pr-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/50 input-focus transition-all"
+                            placeholder="Choose a username (letters, numbers, _)">
+                    </div>
+                    <p class="text-xs text-white/50 mt-1 ml-1">This will be your display name</p>
+                </div>
+
+                <!-- Birthday -->
+                <div>
+                    <label class="block text-white/80 text-sm mb-2 ml-1">Birthday *</label>
+                    <div class="relative">
+                        <i class="fas fa-birthday-cake absolute left-4 top-1/2 transform -translate-y-1/2 text-white/50"></i>
+                        <input type="date" id="regBirthday" required
+                            class="w-full pl-12 pr-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/50 input-focus transition-all"
+                            max="">
+                    </div>
+                    <p class="text-xs text-white/50 mt-1 ml-1" id="ageDisplay">You must be 7+ years old</p>
+                </div>
+
+                <!-- Email (Optional) -->
+                <div>
+                    <label class="block text-white/80 text-sm mb-2 ml-1">Email <span class="text-white/50">(optional)</span></label>
+                    <div class="relative">
+                        <i class="fas fa-envelope absolute left-4 top-1/2 transform -translate-y-1/2 text-white/50"></i>
+                        <input type="email" id="regEmail"
+                            class="w-full pl-12 pr-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/50 input-focus transition-all"
+                            placeholder="For account recovery">
+                    </div>
+                </div>
+
+                <!-- Password -->
+                <div>
+                    <label class="block text-white/80 text-sm mb-2 ml-1">Password *</label>
+                    <div class="relative">
+                        <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-white/50"></i>
+                        <input type="password" id="regPassword" required minlength="6" oninput="checkPasswordStrength()"
+                            class="w-full pl-12 pr-12 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/50 input-focus transition-all"
+                            placeholder="Min 6 characters">
+                        <button type="button" onclick="togglePassword('regPassword')" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/50">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <div class="mt-2 h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div id="passwordStrength" class="password-strength w-0"></div>
+                    </div>
+                    <p class="text-xs text-white/50 mt-1 ml-1" id="passwordHint">Use 8+ chars with numbers & symbols</p>
+                </div>
+
+                <!-- Confirm Password -->
+                <div>
+                    <label class="block text-white/80 text-sm mb-2 ml-1">Confirm Password *</label>
+                    <div class="relative">
+                        <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-white/50"></i>
+                        <input type="password" id="regConfirmPassword" required
+                            class="w-full pl-12 pr-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/50 input-focus transition-all"
+                            placeholder="Repeat password">
+                    </div>
+                </div>
+
+                <!-- Avatar Color -->
+                <div>
+                    <label class="block text-white/80 text-sm mb-2 ml-1">Choose Your Color</label>
+                    <div class="grid grid-cols-5 gap-2" id="regColorGrid">
+                        <!-- Generated by JS -->
+                    </div>
+                </div>
+
+                <!-- Terms -->
+                <div class="flex items-start gap-2">
+                    <input type="checkbox" id="agreeTerms" required class="mt-1 w-4 h-4 rounded border-white/30 bg-white/10 text-purple-600">
+                    <label class="text-xs text-white/70">
+                        I agree to the <a href="#" class="text-white underline">Terms of Service</a> and <a href="#" class="text-white underline">Privacy Policy</a>. I am 7+ years old or have parental consent.
+                    </label>
+                </div>
+
+                <button type="submit" class="w-full py-4 bg-white text-purple-600 rounded-2xl font-bold text-lg shadow-lg btn-press transition-all flex items-center justify-center gap-2">
+                    <span>Create Account</span>
+                    <i class="fas fa-user-plus"></i>
+                </button>
+            </form>
+
+            <div class="mt-6 text-center">
+                <p class="text-white/60 text-sm">Already have an account?</p>
+                <button onclick="showLogin()" class="mt-2 text-white font-bold hover:underline">Login</button>
+            </div>
+        </div>
+
+        <!-- Forgot Password Form -->
+        <div id="forgotForm" class="hidden glass rounded-3xl p-6 w-full max-w-sm slide-up">
+            <div class="text-center mb-6">
+                <div class="text-5xl mb-3 animate-float inline-block">🔐</div>
+                <h1 class="text-3xl mb-1">Reset Password</h1>
+                <p class="text-white/70 text-sm">Enter your username</p>
+            </div>
+
+            <form onsubmit="handleForgotPassword(event)" class="space-y-4">
+                <div>
+                    <label class="block text-white/80 text-sm mb-2 ml-1">Username</label>
+                    <div class="relative">
+                        <i class="fas fa-user absolute left-4 top-1/2 transform -translate-y-1/2 text-white/50"></i>
+                        <input type="text" id="forgotUsername" required
+                            class="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/50 input-focus transition-all"
+                            placeholder="Your username">
+                    </div>
+                </div>
+
+                <div id="securityQuestion" class="hidden">
+                    <p class="text-sm text-white/80 mb-2">Security Question:</p>
+                    <p class="text-lg font-bold mb-3" id="questionText">What is your favorite color?</p>
+                    <input type="text" id="securityAnswer" required
+                        class="w-full px-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white/50"
+                        placeholder="Your answer">
+                </div>
+
+                <button type="submit" class="w-full py-4 bg-white text-purple-600 rounded-2xl font-bold text-lg shadow-lg btn-press transition-all">
+                    Continue
+                </button>
+            </form>
+
+            <div class="mt-6 text-center">
+                <button onclick="showLogin()" class="text-white/70 hover:text-white text-sm">
+                    <i class="fas fa-arrow-left mr-1"></i> Back to Login
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="hidden fixed inset-0 gradient-primary flex flex-col">
+        <!-- Header -->
+        <header class="glass safe-top px-4 py-3 flex justify-between items-center z-40 shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">🎮</div>
+                <div>
+                    <h1 class="text-lg leading-none">BlockVerse</h1>
+                    <p class="text-xs text-white/60" id="onlineStatus">🟢 Online</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2 bg-yellow-500/20 px-3 py-1.5 rounded-full border border-yellow-400/30">
+                    <span class="text-lg">💰</span>
+                    <span id="coinDisplay" class="font-bold text-yellow-300">0</span>
+                </div>
+                <button onclick="toggleProfileMenu()" class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center btn-press relative overflow-hidden">
+                    <div id="headerAvatar" class="w-full h-full bg-[#4ECDC4]"></div>
+                </button>
+            </div>
+        </header>
+
+        <!-- Profile Menu -->
+        <div id="profileMenu" class="hidden absolute top-16 right-4 w-56 glass-dark rounded-2xl p-2 z-50 slide-up">
+            <div class="px-3 py-3 border-b border-white/10 mb-2">
+                <p class="font-bold" id="menuUsername">Player</p>
+                <p class="text-xs text-white/50" id="menuFullName">Full Name</p>
+                <div class="flex items-center gap-1 mt-1">
+                    <span class="text-[10px] bg-purple-500/30 px-2 py-0.5 rounded-full">Level <span id="menuLevel">1</span></span>
+                    <span class="text-[10px] bg-blue-500/30 px-2 py-0.5 rounded-full" id="menuAgeBadge">7+</span>
+                </div>
+            </div>
+            <button onclick="showSection('profile')" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/10 text-sm flex items-center gap-3">
+                <i class="fas fa-user-circle w-5"></i> Profile
+            </button>
+            <button onclick="showSection('avatar')" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/10 text-sm flex items-center gap-3">
+                <i class="fas fa-palette w-5"></i> Avatar
+            </button>
+            <button onclick="showSection('inventory')" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/10 text-sm flex items-center gap-3">
+                <i class="fas fa-backpack w-5"></i> Inventory
+            </button>
+            <button onclick="showSection('settings')" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/10 text-sm flex items-center gap-3">
+                <i class="fas fa-cog w-5"></i> Settings
+            </button>
+            <div class="border-t border-white/10 mt-2 pt-2">
+                <button onclick="logout()" class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-red-500/20 text-sm text-red-300 flex items-center gap-3">
+                    <i class="fas fa-sign-out-alt w-5"></i> Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main id="mainContent" class="flex-1 overflow-hidden relative">
+            <!-- Play Section -->
+            <section id="playSection" class="section h-full overflow-y-auto custom-scrollbar p-4 pb-24">
+                <div class="mb-4">
+                    <h2 class="text-2xl font-bold mb-1">Welcome back, <span id="welcomeName">Player</span>! 👋</h2>
+                    <p class="text-white/60 text-sm">What would you like to play today?</p>
+                </div>
+
+                <!-- Featured -->
+                <div class="relative rounded-3xl overflow-hidden mb-6 h-48 bg-gradient-to-br from-purple-600 to-blue-600 shadow-2xl">
+                    <div class="absolute inset-0 flex flex-col justify-end p-6 bg-gradient-to-t from-black/60 to-transparent">
+                        <span class="text-xs font-bold bg-white/20 px-2 py-1 rounded-full w-fit mb-2">🔥 Featured</span>
+                        <h3 class="text-2xl font-bold mb-1">Skyblock Adventures</h3>
+                        <p class="text-sm text-white/80 mb-3">Build your island empire!</p>
+                        <button onclick="joinGame('Skyblock Adventures')" class="bg-white text-purple-600 px-6 py-2 rounded-full font-bold text-sm w-fit btn-press">
+                            Play Now
+                        </button>
+                    </div>
+                    <div class="absolute top-4 right-4 text-6xl animate-float">🏝️</div>
+                </div>
+
+                <!-- Categories -->
+                <div class="flex gap-2 overflow-x-auto no-scrollbar mb-6 pb-2">
+                    <button class="shrink-0 px-4 py-2 rounded-full bg-white text-purple-600 font-bold text-sm shadow-lg">All</button>
+                    <button class="shrink-0 px-4 py-2 rounded-full glass font-bold text-sm text-white/80">Popular</button>
+                    <button class="shrink-0 px-4 py-2 rounded-full glass font-bold text-sm text-white/80">New</button>
+                    <button class="shrink-0 px-4 py-2 rounded-full glass font-bold text-sm text-white/80">Friends</button>
+                </div>
+
+                <h3 class="text-lg font-bold mb-3">Trending Worlds</h3>
+                <div class="grid grid-cols-2 gap-3" id="gamesGrid"></div>
+            </section>
+
+            <!-- Profile Section -->
+            <section id="profileSection" class="section hidden h-full overflow-y-auto custom-scrollbar p-4 pb-24">
+                <h2 class="text-2xl font-bold mb-6">My Profile</h2>
+                
+                <div class="glass rounded-3xl p-6 mb-6 text-center">
+                    <div class="w-24 h-24 rounded-full mx-auto mb-4 relative">
+                        <div id="profileAvatar" class="w-full h-full rounded-full bg-[#4ECDC4] border-4 border-white/30 shadow-xl"></div>
+                        <button onclick="showSection('avatar')" class="absolute bottom-0 right-0 w-8 h-8 bg-white text-purple-600 rounded-full flex items-center justify-center btn-press shadow-lg">
+                            <i class="fas fa-camera text-xs"></i>
+                        </button>
+                    </div>
+                    <h3 class="text-2xl font-bold" id="profileUsername">Username</h3>
+                    <p class="text-white/60" id="profileFullName">Full Name</p>
+                    
+                    <div class="flex justify-center gap-4 mt-4">
+                        <div class="text-center">
+                            <p class="text-2xl font-bold text-yellow-400" id="profileCoins">0</p>
+                            <p class="text-xs text-white/50">Coins</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-2xl font-bold text-blue-400" id="profileLevel">1</p>
+                            <p class="text-xs text-white/50">Level</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-2xl font-bold text-green-400" id="profileWorlds">0</p>
+                            <p class="text-xs text-white/50">Worlds</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass rounded-2xl p-4 mb-4">
+                    <h4 class="font-bold mb-3 flex items-center gap-2">
+                        <i class="fas fa-info-circle text-blue-400"></i> Account Info
+                    </h4>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between py-2 border-b border-white/10">
+                            <span class="text-white/60">Member Since</span>
+                            <span id="profileJoinDate" class="font-bold">Today</span>
+                        </div>
+                        <div class="flex justify-between py-2 border-b border-white/10">
+                            <span class="text-white/60">Birthday</span>
+                            <span id="profileBirthday" class="font-bold">--</span>
+                        </div>
+                        <div class="flex justify-between py-2 border-b border-white/10">
+                            <span class="text-white/60">Age</span>
+                            <span id="profileAge" class="font-bold">--</span>
+                        </div>
+                        <div class="flex justify-between py-2">
+                            <span class="text-white/60">Account ID</span>
+                            <span id="profileId" class="font-bold text-xs">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass rounded-2xl p-4">
+                    <h4 class="font-bold mb-3 text-red-300 flex items-center gap-2">
+                        <i class="fas fa-exclamation-triangle"></i> Danger Zone
+                    </h4>
+                    <button onclick="deleteAccount()" class="w-full py-3 bg-red-500/20 text-red-300 rounded-xl font-bold border border-red-500/30 btn-press text-sm">
+                        Delete Account
+                    </button>
+                </div>
+            </section>
+
+            <!-- Other sections... -->
+            <section id="createSection" class="section hidden h-full overflow-y-auto custom-scrollbar p-4 pb-24">
+                <h2 class="text-2xl font-bold mb-6">Create World</h2>
+                <button onclick="startCreating()" class="w-full glass rounded-2xl p-6 text-left btn-press mb-4">
+                    <div class="text-4xl mb-3">🌍</div>
+                    <h3 class="text-xl font-bold">New World</h3>
+                    <p class="text-sm text-white/60">Start building from scratch</p>
+                </button>
+                <h3 class="text-lg font-bold mb-3">My Worlds</h3>
+                <div id="myWorldsList" class="space-y-3"></div>
+            </section>
+
+            <section id="avatarSection" class="section hidden h-full overflow-y-auto custom-scrollbar p-4 pb-24">
+                <h2 class="text-2xl font-bold mb-6">Customize Avatar</h2>
+                <div class="flex justify-center mb-8">
+                    <div id="avatarPreview" class="w-32 h-32 rounded-3xl bg-[#4ECDC4] shadow-2xl animate-float"></div>
+                </div>
+                <div class="grid grid-cols-5 gap-2 mb-6" id="avatarColorGrid"></div>
+                <button onclick="saveAvatar()" class="w-full py-4 bg-white text-purple-600 rounded-2xl font-bold btn-press">Save Changes</button>
+            </section>
+
+            <section id="settingsSection" class="section hidden h-full overflow-y-auto custom-scrollbar p-4 pb-24">
+                <h2 class="text-2xl font-bold mb-6">Settings</h2>
+                
+                <div class="glass rounded-2xl p-4 mb-4">
+                    <h3 class="font-bold mb-4">Security</h3>
+                    <button onclick="changePassword()" class="w-full py-3 mb-3 rounded-xl bg-white/10 flex items-center justify-between px-4 btn-press">
+                        <span>Change Password</span>
+                        <i class="fas fa-chevron-right text-white/50"></i>
+                    </button>
+                    <button onclick="toggle2FA()" class="w-full py-3 rounded-xl bg-white/10 flex items-center justify-between px-4 btn-press">
+                        <span>Two-Factor Auth</span>
+                        <span class="text-xs bg-gray-500/50 px-2 py-1 rounded-full">Off</span>
+                    </button>
+                </div>
+
+                <button onclick="logoutAllDevices()" class="w-full py-4 bg-orange-500/20 text-orange-300 rounded-2xl font-bold border border-orange-500/30 btn-press mb-4">
+                    Logout All Devices
+                </button>
+
+                <button onclick="logout()" class="w-full py-4 bg-red-500/20 text-red-300 rounded-2xl font-bold border border-red-500/30 btn-press">
+                    Log Out
+                </button>
+            </section>
+        </main>
+
+        <!-- Bottom Nav -->
+        <nav class="glass safe-bottom px-2 py-2 flex justify-around items-center z-40 shrink-0">
+            <button onclick="showSection('play')" class="nav-btn active flex flex-col items-center gap-1 p-2 rounded-xl transition-all w-16" data-section="play">
+                <i class="fas fa-gamepad text-xl"></i>
+                <span class="text-[10px] font-bold">Play</span>
+            </button>
+            <button onclick="showSection('create')" class="nav-btn flex flex-col items-center gap-1 p-2 rounded-xl transition-all w-16 opacity-60" data-section="create">
+                <i class="fas fa-hammer text-xl"></i>
+                <span class="text-[10px] font-bold">Create</span>
+            </button>
+            <button onclick="showSection('profile')" class="nav-btn flex flex-col items-center gap-1 p-2 rounded-xl transition-all w-16 opacity-60" data-section="profile">
+                <i class="fas fa-user text-xl"></i>
+                <span class="text-[10px] font-bold">Profile</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Game Interface -->
+    <div id="gameInterface" class="hidden fixed inset-0 bg-black">
+        <canvas id="gameCanvas" class="block w-full h-full"></canvas>
+        
+        <!-- Game UI -->
+        <div class="absolute inset-0 pointer-events-none">
+            <div class="absolute top-0 left-0 right-0 p-4 flex justify-between items-start pointer-events-auto safe-top">
+                <button onclick="exitGame()" class="glass-dark px-4 py-2 rounded-full text-sm font-bold">
+                    <i class="fas fa-arrow-left mr-1"></i> Leave
+                </button>
+                <div class="glass-dark px-4 py-2 rounded-full text-sm">
+                    <span id="gamePlayerCount">1</span> Players
+                </div>
+            </div>
+
+            <!-- Touch Controls -->
+            <div class="absolute bottom-4 left-4 w-32 h-32 pointer-events-auto">
+                <div id="joystick" class="w-full h-full rounded-full joystick-area relative">
+                    <div id="joystickKnob" class="absolute w-12 h-12 rounded-full joystick-knob top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
+                </div>
+            </div>
+
+            <div class="absolute bottom-4 right-4 pointer-events-auto space-y-2">
+                <button id="jumpBtn" class="w-16 h-16 rounded-full glass border-2 border-white/30 flex items-center justify-center text-2xl btn-press">
+                    <i class="fas fa-arrow-up"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Management System
+        const DataSystem = {
+            // Initialize storage
+            init() {
+                if (!localStorage.getItem('blockverse_accounts')) {
+                    localStorage.setItem('blockverse_accounts', JSON.stringify({}));
+                }
+                if (!localStorage.getItem('blockverse_current_user')) {
+                    localStorage.setItem('blockverse_current_user', null);
+                }
+            },
+
+            // Hash password using SHA-256
+            hashPassword(password) {
+                return CryptoJS.SHA256(password).toString();
+            },
+
+            // Generate unique ID
+            generateId() {
+                return 'bv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            },
+
+            // Save account
+            saveAccount(accountData) {
+                const accounts = this.getAllAccounts();
+                accounts[accountData.username.toLowerCase()] = accountData;
+                localStorage.setItem('blockverse_accounts', JSON.stringify(accounts));
+            },
+
+            // Get all accounts
+            getAllAccounts() {
+                return JSON.parse(localStorage.getItem('blockverse_accounts') || '{}');
+            },
+
+            // Get account by username
+            getAccount(username) {
+                const accounts = this.getAllAccounts();
+                return accounts[username.toLowerCase()] || null;
+            },
+
+            // Check if username exists
+            usernameExists(username) {
+                return !!this.getAccount(username);
+            },
+
+            // Validate login
+            validateLogin(username, password) {
+                const account = this.getAccount(username);
+                if (!account) return null;
+                const hashedPassword = this.hashPassword(password);
+                if (account.password !== hashedPassword) return null;
+                return account;
+            },
+
+            // Set current session
+            setCurrentUser(account) {
+                localStorage.setItem('blockverse_current_user', JSON.stringify(account));
+            },
+
+            // Get current session
+            getCurrentUser() {
+                const user = localStorage.getItem('blockverse_current_user');
+                return user ? JSON.parse(user) : null;
+            },
+
+            // Clear session
+            clearCurrentUser() {
+                localStorage.setItem('blockverse_current_user', null);
+            },
+
+            // Update account data
+            updateAccount(username, updates) {
+                const account = this.getAccount(username);
+                if (account) {
+                    Object.assign(account, updates);
+                    account.lastUpdated = new Date().toISOString();
+                    this.saveAccount(account);
+                    if (this.getCurrentUser()?.username === username) {
+                        this.setCurrentUser(account);
+                    }
+                    return account;
+                }
+                return null;
+            },
+
+            // Delete account
+            deleteAccount(username) {
+                const accounts = this.getAllAccounts();
+                delete accounts[username.toLowerCase()];
+                localStorage.setItem('blockverse_accounts', JSON.stringify(accounts));
+                this.clearCurrentUser();
+            },
+
+            // Calculate age from birthday
+            calculateAge(birthday) {
+                const birthDate = new Date(birthday);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                return age;
+            },
+
+            // Validate age (7+)
+            isValidAge(birthday) {
+                return this.calculateAge(birthday) >= 7;
+            }
+        };
+
+        // App State
+        let currentUser = null;
+        let scene, camera, renderer;
+        let selectedColor = '#4ECDC4';
+
+        // Initialize
+        window.onload = () => {
+            DataSystem.init();
+            
+            // Check for existing session
+            const savedUser = DataSystem.getCurrentUser();
+            if (savedUser) {
+                currentUser = savedUser;
+                showApp();
+            } else {
+                setTimeout(() => {
+                    document.getElementById('loadingScreen').classList.add('hidden');
+                    document.getElementById('authContainer').classList.remove('hidden');
+                    showLogin();
+                }, 1000);
+            }
+
+            generateColorGrids();
+            setupBirthdayValidation();
+        };
+
+        function generateColorGrids() {
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3', '#FF9F43'];
+            
+            const createGrid = (id) => {
+                const grid = document.getElementById(id);
+                grid.innerHTML = colors.map(color => `
+                    <button type="button" onclick="selectRegColor('${color}')" 
+                        class="color-btn w-full aspect-square rounded-xl border-2 ${color === selectedColor ? 'border-white scale-110' : 'border-transparent'} transition-all shadow-lg" 
+                        style="background-color: ${color}" data-color="${color}"></button>
+                `).join('');
+            };
+
+            createGrid('regColorGrid');
+            
+            document.getElementById('avatarColorGrid').innerHTML = colors.map(color => `
+                <button onclick="changeAvatarColor('${color}')" 
+                    class="w-full aspect-square rounded-xl border-2 border-transparent hover:border-white transition-all shadow-lg" 
+                    style="background-color: ${color}"></button>
+            `).join('');
+        }
+
+        function selectRegColor(color) {
+            selectedColor = color;
+            document.querySelectorAll('#regColorGrid .color-btn').forEach(btn => {
+                btn.classList.remove('border-white', 'scale-110');
+                btn.classList.add('border-transparent');
+                if (btn.dataset.color === color) {
+                    btn.classList.remove('border-transparent');
+                    btn.classList.add('border-white', 'scale-110');
+                }
+            });
+        }
+
+        function setupBirthdayValidation() {
+            const dateInput = document.getElementById('regBirthday');
+            const today = new Date();
+            const maxDate = new Date(today.getFullYear() - 7, today.getMonth(), today.getDate());
+            dateInput.max = maxDate.toISOString().split('T')[0];
+            
+            dateInput.addEventListener('change', (e) => {
+                const age = DataSystem.calculateAge(e.target.value);
+                document.getElementById('ageDisplay').textContent = `You are ${age} years old`;
+                document.getElementById('ageDisplay').className = age >= 7 ? 'text-xs text-green-400 mt-1 ml-1' : 'text-xs text-red-400 mt-1 ml-1';
+            });
+        }
+
+        function checkPasswordStrength() {
+            const password = document.getElementById('regPassword').value;
+            const strengthBar = document.getElementById('passwordStrength');
+            const hint = document.getElementById('passwordHint');
+            
+            let strength = 0;
+            if (password.length >= 8) strength++;
+            if (password.match(/[0-9]/)) strength++;
+            if (password.match(/[^a-zA-Z0-9]/)) strength++;
+            
+            strengthBar.className = 'password-strength';
+            if (password.length < 6) {
+                strengthBar.style.width = '0%';
+                hint.textContent = 'Too short (min 6 chars)';
+                hint.className = 'text-xs text-red-400 mt-1 ml-1';
+            } else if (strength === 1) {
+                strengthBar.classList.add('strength-weak');
+                hint.textContent = 'Weak - Add numbers & symbols';
+                hint.className = 'text-xs text-orange-400 mt-1 ml-1';
+            } else if (strength === 2) {
+                strengthBar.classList.add('strength-medium');
+                hint.textContent = 'Medium - Good!';
+                hint.className = 'text-xs text-yellow-400 mt-1 ml-1';
+            } else {
+                strengthBar.classList.add('strength-strong');
+                hint.textContent = 'Strong - Excellent!';
+                hint.className = 'text-xs text-green-400 mt-1 ml-1';
+            }
+        }
+
+        function togglePassword(id) {
+            const input = document.getElementById(id);
+            const type = input.type === 'password' ? 'text' : 'password';
+            input.type = type;
+            event.target.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+        }
+
+        // Auth Navigation
+        function showLogin() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('forgotForm').classList.add('hidden');
+        }
+
+        function showRegister() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+            document.getElementById('forgotForm').classList.add('hidden');
+        }
+
+        function showForgotPassword() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('forgotForm').classList.remove('hidden');
+        }
+
+        // Handlers
+        function handleRegister(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('regName').value.trim();
+            const username = document.getElementById('regUsername').value.trim();
+            const birthday = document.getElementById('regBirthday').value;
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const confirmPassword = document.getElementById('regConfirmPassword').value;
+
+            // Validation
+            if (DataSystem.usernameExists(username)) {
+                showToast('Username already taken!', 'error');
+                return;
+            }
+
+            if (!DataSystem.isValidAge(birthday)) {
+                showToast('You must be at least 7 years old!', 'error');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showToast('Passwords do not match!', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                showToast('Password must be at least 6 characters!', 'error');
+                return;
+            }
+
+            // Create account
+            const account = {
+                id: DataSystem.generateId(),
+                fullName: name,
+                username: username,
+                birthday: birthday,
+                email: email || null,
+                password: DataSystem.hashPassword(password),
+                avatarColor: selectedColor,
+                coins: 1000,
+                level: 1,
+                xp: 0,
+                worlds: [],
+                inventory: [],
+                friends: [],
+                settings: {
+                    music: true,
+                    sound: true,
+                    notifications: true
+                },
+                createdAt: new Date().toISOString(),
+                lastLogin: new Date().toISOString(),
+                lastUpdated: new Date().toISOString()
+            };
+
+            DataSystem.saveAccount(account);
+            DataSystem.setCurrentUser(account);
+            currentUser = account;
+
+            showToast('Account created successfully!', 'success');
+            setTimeout(() => showApp(), 1000);
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+
+            const account = DataSystem.validateLogin(username, password);
+            
+            if (!account) {
+                showToast('Invalid username or password!', 'error');
+                document.getElementById('loginForm').classList.add('shake');
+                setTimeout(() => document.getElementById('loginForm').classList.remove('shake'), 500);
+                return;
+            }
+
+            // Update last login
+            account.lastLogin = new Date().toISOString();
+            DataSystem.saveAccount(account);
+
+            if (rememberMe) {
+                DataSystem.setCurrentUser(account);
+            }
+
+            currentUser = account;
+            showToast('Welcome back, ' + account.username + '!', 'success');
+            setTimeout(() => showApp(), 500);
+        }
+
+        function handleForgotPassword(e) {
+            e.preventDefault();
+            const username = document.getElementById('forgotUsername').value.trim();
+            const account = DataSystem.getAccount(username);
+            
+            if (!account) {
+                showToast('Account not found!', 'error');
+                return;
+            }
+
+            // In real app, send email. Here we show security question simulation
+            document.getElementById('securityQuestion').classList.remove('hidden');
+            showToast('Security question loaded', 'success');
+        }
+
+        // App Functions
+        function showApp() {
+            document.getElementById('authContainer').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            
+            updateProfileUI();
+            generateGames();
+            showSection('play');
+        }
+
+        function updateProfileUI() {
+            if (!currentUser) return;
+            
+            // Header
+            document.getElementById('headerAvatar').style.backgroundColor = currentUser.avatarColor;
+            document.getElementById('coinDisplay').textContent = currentUser.coins.toLocaleString();
+            
+            // Menu
+            document.getElementById('menuUsername').textContent = currentUser.username;
+            document.getElementById('menuFullName').textContent = currentUser.fullName;
+            document.getElementById('menuLevel').textContent = currentUser.level;
+            
+            const age = DataSystem.calculateAge(currentUser.birthday);
+            document.getElementById('menuAgeBadge').textContent = age + '+';
+            
+            // Welcome
+            document.getElementById('welcomeName').textContent = currentUser.username;
+            
+            // Profile page
+            document.getElementById('profileUsername').textContent = currentUser.username;
+            document.getElementById('profileFullName').textContent = currentUser.fullName;
+            document.getElementById('profileAvatar').style.backgroundColor = currentUser.avatarColor;
+            document.getElementById('profileCoins').textContent = currentUser.coins.toLocaleString();
+            document.getElementById('profileLevel').textContent = currentUser.level;
+            document.getElementById('profileWorlds').textContent = currentUser.worlds.length;
+            document.getElementById('profileJoinDate').textContent = new Date(currentUser.createdAt).toLocaleDateString();
+            document.getElementById('profileBirthday').textContent = new Date(currentUser.birthday).toLocaleDateString();
+            document.getElementById('profileAge').textContent = age + ' years';
+            document.getElementById('profileId').textContent = currentUser.id;
+            
+            // Avatar preview
+            document.getElementById('avatarPreview').style.backgroundColor = currentUser.avatarColor;
+        }
+
+        function showSection(section) {
+            document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+            const sectionEl = document.getElementById(section + 'Section');
+            if (sectionEl) sectionEl.classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active', 'opacity-100');
+                btn.classList.add('opacity-60');
+                if (btn.dataset.section === section) {
+                    btn.classList.add('active', 'opacity-100');
+                    btn.classList.remove('opacity-60');
+                }
+            });
+            
+            document.getElementById('profileMenu')?.classList.add('hidden');
+        }
+
+        function toggleProfileMenu() {
+            document.getElementById('profileMenu').classList.toggle('hidden');
+        }
+
+        function logout() {
+            DataSystem.clearCurrentUser();
+            currentUser = null;
+            location.reload();
+        }
+
+        function changeAvatarColor(color) {
+            document.getElementById('avatarPreview').style.backgroundColor = color;
+            selectedColor = color;
+        }
+
+        function saveAvatar() {
+            if (currentUser) {
+                DataSystem.updateAccount(currentUser.username, { avatarColor: selectedColor });
+                updateProfileUI();
+                showToast('Avatar saved!', 'success');
+            }
+        }
+
+        function changePassword() {
+            const newPass = prompt('Enter new password (min 6 chars):');
+            if (newPass && newPass.length >= 6) {
+                DataSystem.updateAccount(currentUser.username, { 
+                    password: DataSystem.hashPassword(newPass) 
+                });
+                showToast('Password changed!', 'success');
+            }
+        }
+
+        function deleteAccount() {
+            if (confirm('WARNING: This will permanently delete your account! Type "DELETE" to confirm:')) {
+                const input = prompt('Type "DELETE" to confirm:');
+                if (input === 'DELETE') {
+                    DataSystem.deleteAccount(currentUser.username);
+                    showToast('Account deleted', 'success');
+                    setTimeout(() => location.reload(), 1500);
+                }
+            }
+        }
+
+        function logoutAllDevices() {
+            showToast('Logged out from all devices', 'success');
+        }
+
+        function toggle2FA() {
+            showToast('2FA coming soon!', 'info');
+        }
+
+        // Game Functions
+        function generateGames() {
+            const games = [
+                { name: "Skyblock", icon: "🏝️", color: "from-blue-400 to-blue-600", players: 234 },
+                { name: "Obby Tower", icon: "🏃", color: "from-red-400 to-red-600", players: 567 },
+                { name: "Tycoon", icon: "🏭", color: "from-green-400 to-green-600", players: 123 },
+                { name: "Hide & Seek", icon: "🙈", color: "from-purple-400 to-purple-600", players: 89 }
+            ];
+
+            document.getElementById('gamesGrid').innerHTML = games.map(game => `
+                <div class="glass rounded-2xl overflow-hidden border border-white/10 btn-press" onclick="joinGame('${game.name}')">
+                    <div class="h-24 bg-gradient-to-br ${game.color} flex items-center justify-center text-4xl">
+                        ${game.icon}
+                    </div>
+                    <div class="p-3">
+                        <h3 class="font-bold text-sm">${game.name}</h3>
+                        <p class="text-[10px] text-white/50">👥 ${game.players}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function joinGame(gameName) {
+            document.getElementById('app').classList.add('hidden');
+            document.getElementById('gameInterface').classList.remove('hidden');
+            initGame();
+        }
+
+        function exitGame() {
+            document.getElementById('gameInterface').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+        }
+
+        function initGame() {
+            const canvas = document.getElementById('gameCanvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 3, 5);
+            
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            const light = new THREE.DirectionalLight(0xffffff, 0.8);
+            light.position.set(10, 20, 10);
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(100, 100),
+                new THREE.MeshLambertMaterial({ color: 0x7CFC00 })
+            );
+            ground.rotation.x = -Math.PI / 2;
+            scene.add(ground);
+            
+            function animate() {
+                requestAnimationFrame(animate);
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        // Utilities
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show';
+            
+            if (type === 'error') toast.style.background = 'rgba(239, 68, 68, 0.9)';
+            else if (type === 'success') toast.style.background = 'rgba(34, 197, 94, 0.9)';
+            else toast.style.background = 'rgba(0, 0, 0, 0.9)';
+            
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function startCreating() {
+            const name = prompt('World name:');
+            if (name && currentUser) {
+                currentUser.worlds.push({
+                    id: Date.now(),
+                    name: name,
+                    created: new Date().toISOString(),
+                    blocks: []
+                });
+                DataSystem.saveAccount(currentUser);
+                updateProfileUI();
+                showToast('World created!', 'success');
+            }
+        }
+
+        // Touch controls for game
+        let joystickActive = false;
+        let joystickCenter = { x: 0, y: 0 };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const joystick = document.getElementById('joystick');
+            const knob = document.getElementById('joystickKnob');
+
+            joystick?.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const rect = joystick.getBoundingClientRect();
+                joystickCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+                joystickActive = true;
+                updateJoystick(e.touches[0]);
+            }, { passive: false });
+
+            joystick?.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (joystickActive) updateJoystick(e.touches[0]);
+            }, { passive: false });
+
+            joystick?.addEventListener('touchend', () => {
+                joystickActive = false;
+                knob.style.transform = `translate(-50%, -50%)`;
+            });
+
+            function updateJoystick(touch) {
+                const maxDist = 30;
+                let dx = touch.clientX - joystickCenter.x;
+                let dy = touch.clientY - joystickCenter.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist > maxDist) {
+                    dx = (dx/dist) * maxDist;
+                    dy = (dy/dist) * maxDist;
+                }
+                
+                knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+            }
+        });
+    </script>
+</body>
+</html>
